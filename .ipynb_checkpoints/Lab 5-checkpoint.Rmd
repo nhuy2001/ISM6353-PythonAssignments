@@ -1,0 +1,260 @@
+```{r}
+reticulate::use_condaenv("C:/Users/Test/anaconda3")
+```
+
+```{python}
+import pandas as pd
+import numpy as np
+import seaborn as sns
+
+from sklearn.cluster import KMeans 
+from sklearn.mixture import GaussianMixture
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import *
+from sklearn.feature_selection import mutual_info_classif
+import matplotlib.pyplot as plt
+```
+
+```{python}
+superstore = pd.read_csv('Superstore.csv')
+```
+
+2. Use the Superstore data. Create a dataframe that sorts average sales by state in descending order. 
+What's the highest average sales in a state? Round to nearest whole number.
+
+```{python}
+superstore.groupby('State').mean(numeric_only = True).reset_index()[['State', 'Sales']].sort_values(by = 'Sales', ascending = False).round().head(10)
+```
+
+3. Use the Superstore data. Create a dataframe that sorts total profit by category in descending order. 
+What's the highest total profit for a category? Round to nearest whole number.
+
+```{python}
+superstore.groupby('Category').sum().reset_index()[['Category', 'Profit']].sort_values(by = 'Profit', ascending = False).round().head(10)
+```
+
+
+4. Use the Superstore data. Create a dataframe that sorts total sales by category and region in descending order. 
+What's the highest total sales for a combination of category and region? Round to nearest whole number.
+
+```{python}
+superstore.groupby(['Category', 'Region']).sum().reset_index()[['Category', 'Region', 'Sales']].sort_values(by = 'Sales', ascending = False).round().head(10)
+```
+
+
+5. Use the Superstore data. Create a dataframe that sorts total sales by postal code in descending order.
+How many postal codes have total sales over $100,000?
+
+```{python}
+Q5dat = superstore.groupby('Postal Code').sum().reset_index()[['Postal Code', 'Sales']].sort_values(by = 'Sales', ascending = False).round().head(10)
+
+Q5dat = Q5dat[Q5dat['Sales'] > 100000]
+Q5dat
+len(Q5dat)
+```
+
+6. Use the Superstore data. Create a dataframe that shows the maximum transaction value (sales) for each category. 
+What's the maximum transaction value (sales) for the envelopes category? 
+
+```{python}
+Q6dat = superstore.groupby('Category').max().reset_index()[['Category', 'Sales']].sort_values(by = 'Sales', ascending = False).round()
+
+Q6dat[Q6dat['Category'] == 'Envelopes']
+```
+
+7. Use the Superstore data. Create a dataframe that shows total order quantity by item ID in the central region. 
+What's the item ID with the most order quantity in the central region? 
+```{python}
+superstore[superstore['Region'] == 'Central'].groupby('Item ID').sum()['Order Quantity'].reset_index().sort_values(by = 'Order Quantity', ascending = False).head(10)
+```
+
+8. Use the Superstore data. Create a new variable 'Profit_Margin' that is profit divided by sales.
+Create a dataframe that sorts average profit margin by item ID in ascending order. 
+What's the item ID of the product with lowest average profit margin?
+
+```{python}
+superstore['Profit_Margin'] = superstore['Profit'] / superstore['Sales']
+
+superstore.groupby('Item ID').mean(numeric_only = True)['Profit_Margin'].sort_values().reset_index()
+```
+
+9. Use the Superstore data. Create a dataframe that sorts total sales by customer ID in descending order.
+What's the customer ID of the customer whose total sales is ranked 100th highest? 
+One way to use 'iloc' to find the value at a particular index. 
+The other way is to use the rank function with method = 'min', ascending = False.
+(see here: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.rank.html).
+
+```{python}
+Q9dat = superstore.groupby('Customer ID').sum()['Sales'].sort_values( ascending = False).reset_index()
+Q9dat
+```
+
+```{python}
+Q9dat.iloc[99]
+```
+
+
+10. Use the Superstore data. Create 2 new variables (Year and Month) using order date. 
+Which combination of year and month has the highest total sales? 
+Enter the answer as YYYYMM (e.g. If your answer is January 2021, enter 202101).
+
+```{python}
+superstore['Month'] = pd.to_datetime(superstore['Order Date'], format = '%m/%d/%Y').dt.month
+superstore['Year'] = pd.to_datetime(superstore['Order Date'], format = '%m/%d/%Y').dt.year
+
+superstore.groupby(['Year', 'Month']).sum()['Sales'].sort_values(ascending = False).reset_index().head(10)
+```
+
+11. Use the Superstore data. 
+Create 3 dataframes that show the states by total sales, total profit, and total order quantity respectively. 
+Join the 3 dataframes using join (e.g. df4 = df1.join(df2).join(df3)).
+What's the value at index [25, 2]?
+
+```{python}
+base11 = superstore.groupby('State').sum()
+list11 = ['Sales', 'Profit', 'Order Quantity']
+```
+
+```{python}
+output11 = {}
+for i in list11:
+  output11["string{0}".format(i)] = base11[i].to_frame()
+```
+
+```{python}
+Q11dat = output11['stringSales'].join(output11['stringProfit'], lsuffix='_caller', rsuffix='_other').join(output11['stringOrder Quantity'], lsuffix='_caller', rsuffix='_other')
+Q11dat.iloc[25,2]
+Q11dat = Q11dat.reset_index()
+```
+
+12. Use the dataframe created in Q11. Use sklearn. 
+Use k-means to cluster the states by total sales, total profit, and total order quantity.
+Use n_clusters=3, random_state=100, max_iter=100.
+How many states belong to the largest cluster? 
+
+Note: Different versions of Python and sklearn and processors may generate different results. 
+If you don't get the question right, check you code. If you think your code and answer are correct, submit your answer as is. 
+I will then grade it manually. 
+
+```{python}
+Q12kmeans = KMeans(n_clusters=3, random_state=100, max_iter=100)
+
+State = pd.get_dummies(data = Q11dat.State, drop_first = True, dtype = int)
+metrics = Q11dat.drop(columns = ['State'])
+
+xQ12 = pd.concat([metrics, State], axis = 1)
+
+Q12kmeans.fit(xQ12)
+```
+
+```{python}
+pd.DataFrame(Q12kmeans.cluster_centers_, columns = xQ12.columns)
+```
+
+```{python}
+pd.DataFrame(Q12kmeans.labels_).value_counts() #35 States
+```
+
+```{python}
+Q12dat = Q11dat
+Q12dat['Cluster'] = Q12kmeans.labels_
+Q12dat.head(10)
+```
+
+```{python}
+Q12dat[Q12dat['Cluster'] == 0].reset_index()['State']
+```
+
+13. Use the dataframe created in Q11. Use sklearn. 
+Use k-means to cluster the states by total sales, total profit, and total order quantity.
+Use n_clusters=3, random_state=100, max_iter=100.
+What's the mean profit for the cluster with most states? Round to nearest whole number.
+
+Note: Different versions of Python and sklearn and processors may generate different results. 
+If you don't get the question right, check you code. If you think your code and answer are correct, submit your answer as is. 
+I will then grade it manually. 
+
+```{python}
+Q13dat = Q12dat
+Q13dat[Q13dat['Cluster'] == 0].mean(numeric_only = True)['Profit'].round()
+```
+
+14. Use the dataframe created in Q11. Use sklearn. 
+Use k-means to cluster the states by total sales, total profit, and total order quantity.
+Use n_clusters=3, random_state=100, max_iter=100.
+Which states belong to the same cluster as Alabama? Choose all that apply. 
+
+Note: Different versions of Python and sklearn and processors may generate different results. 
+If you don't get the question right, check you code. If you think your code and answer are correct, submit your answer as is. 
+I will then grade it manually. 
+
+```{python}
+Q14dat = Q12dat
+stateCheck = ['Alabama','Connecticut', 'California', 'Arkansas', 'Colorado', 'Arizona']
+Q14dat[Q14dat['State'].isin(stateCheck)].sort_values(by = 'Cluster')[['State', 'Cluster']]
+```
+
+15. Use the dataframe created in Q11. Use sklearn. 
+Use k-means to cluster the states by total sales, total profit, and total order quantity.
+Use random_state=100, max_iter=100.
+Run the elbow method to choose the optimal number of clusters. How many clusters would you choose? 
+
+Note: Different versions of Python and sklearn and processors may generate different results. 
+If you don't get the question right, check you code. If you think your code and answer are correct, submit your answer as is. 
+I will then grade it manually. 
+
+```{python}
+maxK = 20
+k = np.arange(1, maxK+1)
+errors = []
+```
+
+```{python}
+for i in k:
+  Q15kmeans = KMeans(n_clusters = i, random_state=100, max_iter=100)
+  Q15kmeans.fit(xQ12) #Reusing var
+  errors.append(Q15kmeans.inertia_)
+```
+
+```{python}
+results = pd.DataFrame({'k': k, 'errors': errors})
+```
+
+```{python}
+ax = sns.lineplot(x = 'k', y = 'errors', data = results, marker = 'o', markersize = 10, markerfacecolor = 'g')
+ax.set(xlabel = 'Number of Clusters (k)', ylabel = 'Within-Cluster Sum of Errors')
+plt.show()
+```
+
+16. Use the dataframe created in Q11. Use sklearn. 
+Use GMM (Gaussian Mixture Models) to cluster the states by total sales, total profit, and total order quantity.
+Use n_components=5, random_state=100, max_iter=100.
+How many states belong to largest cluster? 
+
+Note: Different versions of Python and sklearn and processors may generate different results. 
+If you don't get the question right, check you code. If you think your code and answer are correct, submit your answer as is. 
+I will then grade it manually. 
+
+```{python}
+Q16dat = xQ12
+gmm = GaussianMixture(covariance_type = 'diag', n_components = 5, random_state = 100, max_iter = 100)
+gmm.fit(Q16dat)
+```
+
+```{python}
+clusters = pd.DataFrame(Q11dat)
+clusters['Cluster'] = gmm.predict(Q16dat)
+clusters['Cluster'].value_counts() #19 states
+```
+
+```{python}
+colors = ['red', 'yellow', 'blue', 'green', 'purple']
+
+plt.clf()
+for k in range(0, 5):
+  data = clusters[clusters['Cluster'] == k]
+  plt.scatter(data.Sales, data.Profit, c = colors[k])
+plt.show()
+```
+
